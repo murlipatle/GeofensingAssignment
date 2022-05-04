@@ -1,4 +1,10 @@
 <resources>
-    <string name="app_name">GeofensingAssignment</string>
+    <string name="app_name">Geofence</string>
     <string name="add_geofencing">Add Geofencing</string>
+    <string name="permission_title">Warning</string>
+    <string name="supporting_text_permission">Location services must be enabled for this Geofence.</string>
+    <string name="supporting_text">Location services must be enabled for this Geofencing App. Go on permission setting and enable location for all time</string>
+    <string name="setting">Setting</string>
+    <string name="exit">Exit</string>
+    <string name="remove_geofence">Remove Geofence</string>
 </resources>
