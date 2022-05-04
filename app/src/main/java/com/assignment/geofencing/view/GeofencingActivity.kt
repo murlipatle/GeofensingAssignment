@@ -31,7 +31,11 @@ import com.assignment.geofencing.viewmodel.GeofencingViewModel
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.ktx.Firebase
 import dagger.hilt.android.AndroidEntryPoint
+
 
 @AndroidEntryPoint
 class GeofencingActivity : AppCompatActivity() {
@@ -41,6 +45,7 @@ class GeofencingActivity : AppCompatActivity() {
     private lateinit var geofencingClient: GeofencingClient
     private val geofencingViewModel by viewModels<GeofencingViewModel>()
 
+    private lateinit var firebaseAnalytics: FirebaseAnalytics
 
     private val runningQOrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
@@ -50,6 +55,14 @@ class GeofencingActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
         geofencingClient = LocationServices.getGeofencingClient(this)
+        firebaseAnalytics = Firebase.analytics
+        val bundle = Bundle()
+        bundle.putString(FirebaseAnalytics.Param.ITEM_ID, "id")
+        bundle.putString(FirebaseAnalytics.Param.ITEM_NAME, "GeofencingActivity")
+        bundle.putString(FirebaseAnalytics.Param.CONTENT_TYPE, "image")
+        firebaseAnalytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW, bundle)
+
+
         setDataObserver()
         setClickListener()
     }
@@ -130,6 +143,9 @@ class GeofencingActivity : AppCompatActivity() {
         }
         locationSettingsResponseTask.addOnCompleteListener {
             if (it.isSuccessful) {
+                val params = Bundle()
+                params.putBoolean("Location", true)
+                firebaseAnalytics.logEvent("Permission", params)
                 addGeofence()
             }
         }
@@ -143,6 +159,10 @@ class GeofencingActivity : AppCompatActivity() {
                 addOnSuccessListener {
                     // Geofence added
                     Log.d(tag, "addOnSuccessListener: ")
+                    val params = Bundle()
+                    params.putString("Location","$LATITUDE, $LONGITUDE")
+                    params.putString("Status", "Geofence Added")
+                    firebaseAnalytics.logEvent("Geofence", params)
                     binding.textView.text = String.format(
                         resources.getString(R.string.messages_add_location),
                         LATITUDE,
@@ -153,6 +173,10 @@ class GeofencingActivity : AppCompatActivity() {
                 addOnFailureListener {
                     // Failed to add geofence
                     Log.d(tag, "addOnFailureListener:$it ")
+                    val params = Bundle()
+                    params.putString("Location","$LATITUDE, $LONGITUDE")
+                    params.putString("Status", "Failed to add geofence")
+                    firebaseAnalytics.logEvent("Geofence", params)
                     binding.textView.text = String.format(
                         resources.getString(R.string.failed_to_add),
                         it.localizedMessage
@@ -168,6 +192,10 @@ class GeofencingActivity : AppCompatActivity() {
         geofencingClient.removeGeofences(geofencePendingIntent).run {
             addOnSuccessListener {
                 Log.d(tag, "Removed Geofence")
+                val params = Bundle()
+                params.putString("Location","$LATITUDE, $LONGITUDE")
+                params.putString("Status", "Removed Geofence")
+                firebaseAnalytics.logEvent("Geofence", params)
                 binding.textView.text = String.format(
                     resources.getString(R.string.messages_add_on_start),
                     LATITUDE,
@@ -177,7 +205,12 @@ class GeofencingActivity : AppCompatActivity() {
 
             }
             addOnFailureListener {
-                Log.d(tag, "failed to remove Geofence: ")
+                val params = Bundle()
+                params.putString("Location","$LATITUDE, $LONGITUDE")
+                params.putString("Status", "failed to remove Geofence")
+                firebaseAnalytics.logEvent("Geofence", params)
+                Log.d(tag, "failed to remove Geofence ")
+
             }
         }
     }
@@ -281,13 +314,8 @@ class GeofencingActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-
-
         Log.d(tag, "onRequestPermissionResult")
-
-        if (
-            grantResults.isEmpty() ||
+        if (grantResults.isEmpty() ||
             grantResults[LOCATION_PERMISSION_INDEX] == PackageManager.PERMISSION_DENIED ||
             (requestCode == REQUEST_FOREGROUND_AND_BACKGROUND_PERMISSION_RESULT_CODE &&
                     grantResults[BACKGROUND_LOCATION_PERMISSION_INDEX] ==
