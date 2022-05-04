@@ -1,4 +1,4 @@
-package com.assignment.geofensingassignment
+package com.assignment.geofencing.view
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -12,27 +12,34 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import com.assignment.geofensingassignment.broadcast.GeofenceBroadcastReceiver
-import com.assignment.geofensingassignment.databinding.ActivityGeofencingBinding
-import com.assignment.geofensingassignment.utils.Constants.Companion.BACKGROUND_LOCATION_PERMISSION_INDEX
-import com.assignment.geofensingassignment.utils.Constants.Companion.LOCATION_PERMISSION_INDEX
-import com.assignment.geofensingassignment.utils.Constants.Companion.REQUEST_FOREGROUND_AND_BACKGROUND_PERMISSION_RESULT_CODE
-import com.assignment.geofensingassignment.utils.Constants.Companion.REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
-import com.assignment.geofensingassignment.utils.Constants.Companion.REQUEST_TURN_DEVICE_LOCATION_ON
-import com.assignment.geofensingassignment.utils.GeofenceConst.Companion.LATITUDE
-import com.assignment.geofensingassignment.utils.GeofenceConst.Companion.LOGNTITUTE
-import com.assignment.geofensingassignment.utils.GeofencingDataProvider
+import com.assignment.geofencing.BuildConfig
+import com.assignment.geofencing.R
+import com.assignment.geofencing.broadcast.GeofenceBroadcastReceiver
+import com.assignment.geofencing.databinding.ActivityGeofencingBinding
+import com.assignment.geofencing.utils.Constants.Companion.BACKGROUND_LOCATION_PERMISSION_INDEX
+import com.assignment.geofencing.utils.Constants.Companion.LOCATION_PERMISSION_INDEX
+import com.assignment.geofencing.utils.Constants.Companion.REQUEST_FOREGROUND_AND_BACKGROUND_PERMISSION_RESULT_CODE
+import com.assignment.geofencing.utils.Constants.Companion.REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
+import com.assignment.geofencing.utils.Constants.Companion.REQUEST_TURN_DEVICE_LOCATION_ON
+import com.assignment.geofencing.utils.GeofenceConst.Companion.LATITUDE
+import com.assignment.geofencing.utils.GeofenceConst.Companion.LONGITUDE
+import com.assignment.geofencing.utils.GeofencingDataProvider
+import com.assignment.geofencing.viewmodel.GeofencingViewModel
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class GeofencingActivity : AppCompatActivity() {
-    private val TAG = this.javaClass.simpleName
+    private val tag = this.javaClass.simpleName
 
     private lateinit var binding: ActivityGeofencingBinding
-    lateinit var geofencingClient: GeofencingClient
+    private lateinit var geofencingClient: GeofencingClient
+    private val geofencingViewModel by viewModels<GeofencingViewModel>()
 
 
     private val runningQOrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
@@ -43,12 +50,24 @@ class GeofencingActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
         geofencingClient = LocationServices.getGeofencingClient(this)
+        setDataObserver()
+        setClickListener()
+    }
+
+    private fun setClickListener() {
         binding.button.setOnClickListener {
-            if (binding.button.text.toString().equals(getString(R.string.add_geofencing),true)) {
+            if (binding.button.text.toString().equals(getString(R.string.add_geofencing), true)) {
                 addGeofence()
-            }else{
+            } else {
                 removeGeofence()
             }
+        }
+    }
+
+    private fun setDataObserver() {
+        geofencingViewModel.getUserDataList().observe(this) {
+            Log.d(tag, "Geofencing User Data List : $it ")
+            //TODO we using observe for the user geofencing entry and exit data here.
         }
     }
 
@@ -94,16 +113,16 @@ class GeofencingActivity : AppCompatActivity() {
                         REQUEST_TURN_DEVICE_LOCATION_ON
                     )
                 } catch (sendEx: IntentSender.SendIntentException) {
-                    Log.d(TAG, "Error geting location settings resolution: " + sendEx.message)
+                    Log.d(tag, "Error getting location settings resolution: " + sendEx.message)
                 }
             } else {
                 MaterialAlertDialogBuilder(this)
                     .setTitle(resources.getString(R.string.permission_title))
                     .setMessage(resources.getString(R.string.supporting_text_permission))
-                    .setNeutralButton(getString(R.string.exit)) { dialog, which ->
+                    .setNeutralButton(getString(R.string.exit)) { _, _ ->
                         finish()
                     }
-                    .setPositiveButton(getString(R.string.setting)) { dialog, which ->
+                    .setPositiveButton(getString(R.string.setting)) { _, _ ->
                         checkDeviceLocationSettingsAndStartGeofence()
                     }
                     .show()
@@ -115,51 +134,66 @@ class GeofencingActivity : AppCompatActivity() {
             }
         }
     }
+
     //adding a geofence
     @SuppressLint("MissingPermission")
-    private fun addGeofence(){
-            geofencingClient.addGeofences(getGeofencingRequest(), geofencePendingIntent)
-                .run {
-                    addOnSuccessListener {
-                        // Geofences added
-                        Log.d("TAG", "addOnSuccessListener: ")
-                        binding.textView.text =
-                            "Geofences added on \n Lat:${LATITUDE},Long:${LOGNTITUTE}"
-                        binding.button.text=getString(R.string.remove_geofence)
-                    }
-                    addOnFailureListener {
-                        // Failed to add geofences
-                        Log.d("TAG", "addOnFailureListener:$it ")
-                        binding.textView.text =
-                            "Failed to add geofence $it"
-
-                    }
+    private fun addGeofence() {
+        geofencingClient.addGeofences(getGeofencingRequest(), geofencePendingIntent)
+            .run {
+                addOnSuccessListener {
+                    // Geofence added
+                    Log.d(tag, "addOnSuccessListener: ")
+                    binding.textView.text = String.format(
+                        resources.getString(R.string.messages_add_location),
+                        LATITUDE,
+                        LONGITUDE
+                    )
+                    binding.button.text = getString(R.string.remove_geofence)
                 }
+                addOnFailureListener {
+                    // Failed to add geofence
+                    Log.d(tag, "addOnFailureListener:$it ")
+                    binding.textView.text = String.format(
+                        resources.getString(R.string.failed_to_add),
+                        it.localizedMessage
+                    )
+
+
+                }
+            }
     }
+
     //removing a geofence
-    private fun removeGeofence(){
+    private fun removeGeofence() {
         geofencingClient.removeGeofences(geofencePendingIntent).run {
             addOnSuccessListener {
-                Log.d(TAG, "Removed Geofence")
-                binding.textView.text = "Press Add Button to add geofencing on \n Lat:${LATITUDE},Long:${LOGNTITUTE}"
-                binding.button.text=getString(R.string.add_geofencing)
+                Log.d(tag, "Removed Geofence")
+                binding.textView.text = String.format(
+                    resources.getString(R.string.messages_add_on_start),
+                    LATITUDE,
+                    LONGITUDE
+                )
+                binding.button.text = getString(R.string.add_geofencing)
 
             }
             addOnFailureListener {
-                Log.d(TAG, "failed to remove Geofence: ")
+                Log.d(tag, "failed to remove Geofence: ")
             }
         }
     }
+
     private fun getGeofencingRequest(): GeofencingRequest {
         return GeofencingRequest.Builder().apply {
             setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
             addGeofences(GeofencingDataProvider.getGeofenceList())
         }.build()
     }
+
     private val geofencePendingIntent: PendingIntent by lazy {
         val intent = Intent(this, GeofenceBroadcastReceiver::class.java)
         // We use FLAG_UPDATE_CURRENT so that we get the same pending intent back when calling
         // addGeofences() and removeGeofences().
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PendingIntent.getBroadcast(
                 this, 0, intent,
@@ -169,6 +203,7 @@ class GeofencingActivity : AppCompatActivity() {
             PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
         }
     }
+
     /*
     *  Determines whether the app has the appropriate permissions across Android 10+ and all other
     *  Android versions.
@@ -214,7 +249,7 @@ class GeofencingActivity : AppCompatActivity() {
             else -> REQUEST_FOREGROUND_ONLY_PERMISSIONS_REQUEST_CODE
         }
 
-        Log.d(TAG, "Request foreground only location permission")
+        Log.d(tag, "Request foreground only location permission")
         ActivityCompat.requestPermissions(
             this@GeofencingActivity,
             permissionsArray,
@@ -249,7 +284,7 @@ class GeofencingActivity : AppCompatActivity() {
 
 
 
-        Log.d(TAG, "onRequestPermissionResult")
+        Log.d(tag, "onRequestPermissionResult")
 
         if (
             grantResults.isEmpty() ||
@@ -261,10 +296,10 @@ class GeofencingActivity : AppCompatActivity() {
             MaterialAlertDialogBuilder(this)
                 .setTitle(resources.getString(R.string.permission_title))
                 .setMessage(resources.getString(R.string.supporting_text))
-                .setNeutralButton(getString(R.string.exit)) { dialog, which ->
+                .setNeutralButton(getString(R.string.exit)) { _, _ ->
                     finish()
                 }
-                .setPositiveButton(getString(R.string.setting)) { dialog, which ->
+                .setPositiveButton(getString(R.string.setting)) { _, _ ->
                     // Displays App settings screen.
                     startActivity(Intent().apply {
                         action = Settings.ACTION_APPLICATION_DETAILS_SETTINGS

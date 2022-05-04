@@ -7,4 +7,9 @@
     <string name="setting">Setting</string>
     <string name="exit">Exit</string>
     <string name="remove_geofence">Remove Geofence</string>
+    <string name="failed_to_add">Failed to add geofence on %1$s</string>
+
+    <string name="messages_add_location">Geofence added on Lat:%1$s ,Long:%2$s</string>
+    <string name="messages_add_on_start">Press Add Button to add geofencing on Lat:%1$s ,Long:%2$s</string>
+
 </resources>
