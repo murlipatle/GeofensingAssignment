@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">GeofensingAssignment</string>
+    <string name="add_geofencing">Add Geofencing</string>
 </resources>
